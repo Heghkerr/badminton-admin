@@ -1,0 +1,122 @@
+// Badminton Admin - ERD (DBML)
+// Catatan: ini rancangan awal untuk MVP. Bisa disesuaikan saat implementasi migration.
+
+Table players {
+  id bigserial [pk]
+  name varchar [not null]
+  phone varchar
+  grade varchar [not null, note: "A/B/C/D (atau bisa numeric)"]
+  is_member boolean [not null, default: false]
+  is_active boolean [not null, default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table sessions {
+  id bigserial [pk]
+  session_date date [not null]
+  location varchar
+  courts_count int [not null, default: 1]
+  scoring_target int [not null, default: 21, note: "Skor 21 untuk MVP"]
+  notes text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table session_attendances {
+  id bigserial [pk]
+  session_id bigint [not null, ref: > sessions.id]
+  player_id bigint [not null, ref: > players.id]
+  checked_in_at timestamp [not null]
+
+  // fairness tracker per sesi
+  played_count int [not null, default: 0]
+  last_played_at timestamp
+
+  // pembayaran per datang (opsional, tergantung aturan komunitas)
+  per_visit_fee_amount int [note: "snapshot nominal saat itu"]
+  per_visit_payment_status varchar [not null, default: "unpaid", note: "unpaid/paid/waived"]
+
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (session_id, player_id) [unique]
+  }
+}
+
+Table matches {
+  id bigserial [pk]
+  session_id bigint [not null, ref: > sessions.id]
+  court_no int [not null, default: 1]
+  started_at timestamp
+  ended_at timestamp
+
+  team1_score int [not null, default: 0]
+  team2_score int [not null, default: 0]
+  winner_team int [note: "1 atau 2 (boleh null sampai selesai)"]
+
+  notes text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table match_players {
+  id bigserial [pk]
+  match_id bigint [not null, ref: > matches.id]
+  player_id bigint [not null, ref: > players.id]
+  team_no int [not null, note: "1 atau 2"]
+  position_no int [note: "opsional: 1/2 di dalam team"]
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (match_id, player_id) [unique]
+  }
+}
+
+Table financial_transactions {
+  id bigserial [pk]
+  txn_date date [not null]
+  type varchar [not null, note: "income/expense"]
+  category varchar [not null, note: "per_visit_fee, membership_fee, shuttlecock, court_rent, other"]
+  amount int [not null]
+  method varchar [note: "cash/transfer/other"]
+  notes text
+
+  // optional links
+  session_id bigint [ref: > sessions.id]
+  player_id bigint [ref: > players.id]
+  membership_period_id bigint [ref: > membership_periods.id]
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table membership_periods {
+  id bigserial [pk]
+  name varchar [not null, note: "Mis: 2026-01"]
+  start_date date [not null]
+  end_date date [not null]
+  fee_amount int [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table membership_payments {
+  id bigserial [pk]
+  membership_period_id bigint [not null, ref: > membership_periods.id]
+  player_id bigint [not null, ref: > players.id]
+  status varchar [not null, default: "unpaid", note: "unpaid/paid"]
+  paid_at timestamp
+  amount int [note: "snapshot amount (biasanya sama dengan fee_amount)"]
+  financial_transaction_id bigint [ref: > financial_transactions.id]
+  created_at timestamp
+  updated_at timestamp
+
+  Indexes {
+    (membership_period_id, player_id) [unique]
+  }
+}
+
+
